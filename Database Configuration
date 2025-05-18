@@ -1,0 +1,119 @@
+Database Configuration import java.io.IOException; import java.io.PrintWriter; import javax.servlet.ServletException; import javax.servlet.annotation.WebServlet; import javax.servlet.http.HttpServlet; import javax.servlet.http.HttpServletRequest; import javax.servlet.http.HttpServletResponse; import java.sql.Connection; import java.sql.DriverManager; import java.sql.SQLException; 
+ 
+ 
+@WebServlet(urlPatterns = {"/DatabaseUtil"}) public class DatabaseUtil extends HttpServlet { 
+ 
+    public static Connection getConnection() throws SQLException { 
+        String url = "jdbc:mysql://localhost:3306/stock_control"; 
+        String username = "root"; 
+        String password = ""; 
+         try { 
+            Class.forName("com.mysql.cj.jdbc.Driver");         } catch (ClassNotFoundException e) {             throw new SQLException("Mysql jdbc Driver Not Found", e); 
+        } 
+        return DriverManager.getConnection(url, username, password); 
+ 
+    } 
+ 
+    protected void processRequest(HttpServletRequest request, HttpServletResponse 
+response)             throws ServletException, IOException {     } 
+} 
+ 
+Login 
+import java.io.IOException; import java.io.PrintWriter; import javax.servlet.ServletException; import javax.servlet.annotation.WebServlet; import javax.servlet.http.HttpServlet; import javax.servlet.http.HttpServletRequest; import javax.servlet.http.HttpServletResponse; import javax.servlet.http.*; import java.io.IOException; import java.sql.*; 
+ 
+@WebServlet(urlPatterns = {"/loginServlet"}) public class loginServlet extends HttpServlet { 
+ 
+    protected void processRequest(HttpServletRequest request, HttpServletResponse 
+response) 
+            throws ServletException, IOException { 
+ 
+        String username = request.getParameter("username"); 
+        String password = request.getParameter("password"); 
+ 
+        try (Connection conn = DatabaseUtil.getConnection()) { 
+            PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?"); 
+            stmt.setString(1, username);             stmt.setString(2, password); 
+            ResultSet rs = stmt.executeQuery(); 
+ 
+            if (rs.next()) {                  
+                HttpSession session = request.getSession();                 session.setAttribute("username", username); 
+ 
+                Cookie userCookie = new Cookie("username", username);                 userCookie.setMaxAge(60 * 60 * 24 * 7);                 response.addCookie(userCookie); 
+                //response.sendRedirect("StockManagement.html");                 response.sendRedirect("StockManagementServlet" ); 
+            } else {                 response.getWriter().println("Invalid credentials. Please try again.");             } 
+ 
+        } catch (SQLException e) {             e.printStackTrace();             response.getWriter().println("Database error."); 
+ 
+        } 
+ 
+        response.setContentType("text/html;charset=UTF-8");         try (PrintWriter out = response.getWriter()) { 
+            /* TODO output your page here. You may use following sample code. */             out.println("<!DOCTYPE html>");             out.println("<html>");             out.println("<head>");             out.println("<title>Servlet loginServlet</title>");             out.println("</head>");             out.println("<body>");             out.println("<h1>Servlet loginServlet at " + request.getContextPath() + 
+"</h1>");             out.println("</body>");             out.println("</html>"); 
+        } 
+    } 
+ 
+    // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code."> 
+    @Override     protected void doGet(HttpServletRequest request, HttpServletResponse response)             throws ServletException, IOException {         processRequest(request, response); 
+    } 
+ 
+    @Override     protected void doPost(HttpServletRequest request, HttpServletResponse response)             throws ServletException, IOException {         processRequest(request, response); 
+    } 
+ 
+    @Override     public String getServletInfo() {         return "Short description"; 
+    }// </editor-fold> 
+ 
+} 
+ 
+import java.io.IOException; import java.io.PrintWriter; import javax.servlet.ServletException; import javax.servlet.annotation.WebServlet; import javax.servlet.http.HttpServlet; import javax.servlet.http.HttpServletRequest; import javax.servlet.http.HttpServletResponse; import javax.servlet.http.HttpSession; import java.sql.*; 
+ 
+@WebServlet(urlPatterns = {"/StockManagementServlet"}) public class StockManagementServlet extends HttpServlet { 
+ 
+    protected void processRequest(HttpServletRequest request, HttpServletResponse 
+response) 
+            throws ServletException, IOException { 
+ 
+        HttpSession session = request.getSession(false);         if (session == null || session.getAttribute("username") == null) {             response.sendRedirect("login");             return; 
+        } 
+ 
+        response.setContentType("text/html;charset=UTF-8"); 
+        PrintWriter out = response.getWriter(); 
+ 
+        out.println("<!DOCTYPE html>");         out.println("<html>");         out.println("<head>");         out.println("<title>Stock Management</title>");         out.println("<meta 	name='viewport' 	content='width=device-width, 	initial-
+scale=1.0'>"); 
+ 
+        // Embedded CSS for styling         out.println("<style>");         out.println("body { font-family: Arial, sans-serif; background-color: #f4f6f8; 
+margin: 0; padding: 20px; }"); 
+        out.println("h2 { color: #2c3e50; }");         out.println("table { width: 100%; border-collapse: collapse; margin-top: 20px; 
+background-color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }"); 
+        out.println("th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid 
+#ddd; }");         out.println("th { background-color: #34495e; color: white; }");         out.println("tr:hover { background-color: #f1f1f1; }");         out.println("a { text-decoration: none; color: #3498db; }");         out.println("a:hover { text-decoration: underline; }");         out.println(".actions { white-space: nowrap; }");         out.println("</style>"); 
+ 
+        out.println("</head>");         out.println("<body>");         out.println("<h2>Stock List</h2>"); 
+ 
+        try (Connection conn = DatabaseUtil.getConnection()) { 
+            Statement stmt = conn.createStatement(); 
+            ResultSet rs = stmt.executeQuery("SELECT * FROM stock"); 
+ 
+            out.println("<table>");             out.println("<tr><th>Product Name</th><th>Quantity</th><th>Price</th><th 
+class='actions'>Actions</th></tr>"); 
+ 
+            while (rs.next()) { 
+                String productName = rs.getString("product_name");                 int quantity = rs.getInt("quantity");                 double price = rs.getDouble("price"); 
+ 
+                out.println("<tr>");                 out.println("<td>" + productName + "</td>");                 out.println("<td>" + quantity + "</td>");                 out.println("<td>$" + String.format("%.2f", price) + "</td>");                 out.println("<td class='actions'>" 
+                        + "<a href='updateStock?id=" + rs.getInt("id") + "'>Update</a> | "                         + "<a href='deleteStock?id=" + rs.getInt("id") + "'>Delete</a></td>");                 out.println("</tr>"); 
+            } 
+            out.println("</table>");         } catch (SQLException e) {             e.printStackTrace();             out.println("<p style='color:red;'>Database error occurred.</p>"); 
+        } 
+ 
+        out.println("</body>");         out.println("</html>");     } 
+ 
+    @Override     protected void doGet(HttpServletRequest request, HttpServletResponse response)             throws ServletException, IOException {         processRequest(request, response); 
+    } 
+ 
+    @Override     protected void doPost(HttpServletRequest request, HttpServletResponse response)             throws ServletException, IOException {         processRequest(request, response); 
+    } 
+ 
+    @Override     public String getServletInfo() {         return "Stock Management Servlet"; 
+    } 
+} 
